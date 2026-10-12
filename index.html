@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Aurora-Core · 浏览器一键自检</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f5f7fa; color: #1f2933; line-height: 1.6; padding: 32px;
+  }
+  .wrap { max-width: 820px; margin: 0 auto; background: #fff; border-radius: 14px;
+    box-shadow: 0 4px 24px rgba(0,0,0,.08); padding: 28px 32px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  .sub { color: #6b7280; font-size: 13px; margin-bottom: 20px; }
+  .badge { display: inline-block; padding: 6px 14px; border-radius: 999px; font-weight: 700;
+    font-size: 15px; margin-bottom: 16px; }
+  .green { background: #e6f7ee; color: #0a7d44; }
+  .red { background: #fdecea; color: #c0392b; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid #eef1f4; font-size: 14px; }
+  th { color: #6b7280; font-weight: 600; background: #fafbfc; }
+  .ok { color: #0a7d44; font-weight: 700; }
+  .no { color: #c0392b; font-weight: 700; }
+  .detail { color: #9aa3ad; font-size: 12px; }
+  .foot { margin-top: 18px; color: #9aa3ad; font-size: 12px; }
+  code { background: #f0f2f5; padding: 1px 6px; border-radius: 5px; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>✦ Aurora-Core 自检</h1>
+  <div class="sub">世界顶级 AI 数学内核 · 作者：晨星 · 零依赖 · 可验证</div>
+  <div id="badge" class="badge">运行中…</div>
+  <table>
+    <thead><tr><th>状态</th><th>测试项</th><th>精度指标</th></tr></thead>
+    <tbody id="rows"><tr><td colspan="3">加载内核中…</td></tr></tbody>
+  </table>
+  <div class="foot">
+    内核：<code>src/aurora_core.js</code> · Node 端运行 <code>node src/aurora_core.js</code> 等价自检。<br/>
+    每个原语复用世界顶级公式（LLaMA / PaLM / RoFormer / Transformer），并带独立实现交叉验证的数学不变量。
+  </div>
+</div>
+<script src="src/aurora_core.js"></script>
+<script>
+  (function () {
+    function render() {
+      if (typeof AuroraCore === 'undefined') {
+        document.getElementById('badge').className = 'badge red';
+        document.getElementById('badge').textContent = '内核加载失败';
+        return;
+      }
+      var r = AuroraCore.selfTest();
+      var badge = document.getElementById('badge');
+      badge.className = 'badge ' + (r.allGreen ? 'green' : 'red');
+      badge.textContent = r.passed + '/' + r.total + (r.allGreen ? ' ✅ 全绿' : ' ❌ 存在失败');
+      var tb = document.getElementById('rows');
+      tb.innerHTML = '';
+      r.results.forEach(function (t) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td class="' + (t.pass ? 'ok' : 'no') + '">' + (t.pass ? '✅ PASS' : '❌ FAIL') +
+          '</td><td>' + t.name + '</td><td class="detail">' + (t.detail || '—') + '</td>';
+        tb.appendChild(tr);
+      });
+    }
+    render();
+  })();
+</script>
+</body>
+</html>
