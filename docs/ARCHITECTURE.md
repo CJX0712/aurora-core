@@ -117,3 +117,54 @@ L = −log softmax(z)_y
 
 测试使用 `mulberry32(seed=20261013)` 固定种子，保证每次运行结果**逐位可复现**——
 这是「可验证」的硬前提：任何人 clone 后 `node src/aurora_core.js` 必得相同 8/8 全绿。
+
+---
+
+## 9. 手写反向自动微分引擎（autodiff）
+
+**站在世界顶级成果之上**：反向模式 AD + 计算图 + 拓扑序 + 链式法则累积
+（思想源自 micrograd / JAX），增强支持标量 / 一维 / 二维、广播、matmul、softmax。
+
+### 9.1 机制
+
+```
+前向：建图，每个 Tensor 记录 data / grad / _prev / _backward
+反向：
+  1. 拓扑排序（DFS 后序）得到线性执行序
+  2. root.grad = 1
+  3. 逆序执行每个节点的 _backward，按链式法则把上游梯度累积到 _prev
+```
+
+### 9.2 链式法则样例
+
+对复合 `y = f(g(x))`，反向模式保证：
+```
+∂L/∂x = Σ_i (∂L/∂y_i)·(∂y_i/∂x)
+```
+每个算子只需写「局部梯度」，引擎自动串联——这正是 JAX / PyTorch autograd 的核心。
+
+### 9.3 广播 / matmul 的反向还原
+
+- **标量广播**：`s ⊙ arr`，标量端梯度 = `Σ arr_i·g_i`（对被广播维求和还原）。
+- **matmul** `C = A·B`：`∂L/∂A = (∂L/∂C)·Bᵀ`，`∂L/∂B = Aᵀ·(∂L/∂C)`。
+- **bias 广播** `2D + 1D`：bias 端梯度按列求和（`Σ_rows g`）。
+
+### 9.4 可验证（22/22 全绿）
+
+| 类别 | 验证法 | 结果 |
+|------|--------|------|
+| 每算子 | 中心差分 vs 解析 backward | maxRelErr < 1e-6 |
+| softmax | 对标 `p_j(g_j − Σ g·p)` | ✅ |
+| crossEntropy | 对标 `softmax(z) − onehot` | ✅ |
+| RMSNorm | 引擎全链（sqrt/mean/div）vs 差分 | ✅ |
+| 端到端 | MLP 拟合 sin，SGD 收敛 | loss 降 100×+ |
+
+### 9.5 用法
+
+```js
+const AD = require('./src/autodiff.js');
+const x = AD.leaf([1, 2, 3]);
+const w = AD.leaf([0.5, -0.5, 1.0]);
+const loss = AD.sum(AD.mul(AD.tanh(x), w));
+loss.backward();   // x.grad / w.grad 已填充
+```

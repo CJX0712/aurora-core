@@ -32,12 +32,13 @@ Aurora-Core 是现代 SOTA 大语言模型（LLaMA / PaLM 系）所依赖的**�
 ## 快速开始
 
 ```bash
-# Node：跑全套自检
-node src/aurora_core.js
-# => Aurora-Core 自检：8/8 ✅ 全绿
+# Node：跑核心内核自检
+node src/aurora_core.js      # => 8/8 ✅ 全绿
+# Node：跑自动微分引擎自检
+node src/autodiff.js         # => 22/22 ✅ 全绿
 
-# 浏览器：打开 index.html，一键查看绿/红自检结果
-# 或在控制台：AuroraCore.selfTest()
+# 浏览器：打开 index.html，一键查看全部自检结果
+# 或在控制台：AuroraCore.selfTest() / AuroraAutodiff.selfTest()
 ```
 
 ```js
@@ -54,11 +55,35 @@ A.rmsNorm([1, 2, 3, 4], [1, 1, 1, 1], 1e-6);
 A.causalAttention(Q, K, V, true); // => { ctx, weights }
 ```
 
+## 手写自动微分引擎（autodiff）
+
+`src/autodiff.js` 是 Aurora-Core 的**训练引擎**——让所有原语可学习。
+
+- **站在世界顶级成果之上**：反向模式 AD + 计算图 + 拓扑序 + 链式法则累积，
+  思想源自 micrograd（Karpathy）与 JAX；增强为支持标量 / 向量 / 矩阵、广播、
+  matmul、softmax。
+- **支持算子**：add / sub / mul / div / neg / pow / exp / log / tanh / sin / cos /
+  relu / sigmoid / sum / mean / matmul / addRowwise(bias) / softmax1D / crossEntropy。
+- **可验证（22/22 全绿）**：
+  - 每个算子：中心差分 vs 解析 backward，maxRelErr < 1e-6；
+  - softmax / crossEntropy：对标 `softmax(z) − onehot`；
+  - 引擎重算 RMSNorm 全链（sqrt/mean/div）梯度正确；
+  - **端到端闭环训练**：MLP 拟合 sin，SGD 收敛 loss 降 100×+。
+
+```js
+const AD = require('./src/autodiff.js');
+const x = AD.leaf([1, 2, 3]);          // 叶子参数
+const w = AD.leaf([0.5, -0.5, 1.0]);
+const loss = AD.sum(AD.mul(AD.tanh(x), w));  // 建计算图
+loss.backward();                        // 反向传播，填 x.grad / w.grad
+```
+
 ## 仓库结构
 
 ```
 aurora-core/
 ├── src/aurora_core.js     # 核心内核（零依赖，自带 8/8 自检）
+├── src/autodiff.js        # 手写反向自动微分引擎（自带 22/22 自检）
 ├── index.html             # 浏览器一键自检页（单文件内联）
 ├── docs/ARCHITECTURE.md   # 架构与不变量推导
 ├── package.json
@@ -67,7 +92,7 @@ aurora-core/
 
 ## 路线图（集大成，持续超越）
 
-- [ ] 前向+反向全自动微分（手写 autodiff，对标 micrograd / JAX）
+- [x] 前向+反向全自动微分（手写 autodiff，对标 micrograd / JAX）—— 22/22 全绿，端到端训练收敛
 - [ ] FlashAttention 风格分块注意力（IO 感知，对标 Dao et al. 2022）
 - [ ] KAN 层（Kolmogorov–Arnold，对标 Liu et al. 2024）
 - [ ] 完整 Transformer Block 前向+反向（对标 nanoGPT）
